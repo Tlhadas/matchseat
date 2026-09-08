@@ -9,6 +9,7 @@ type SearchResult = {
   venue: string;
   kickoff: string;
   availability: string;
+  saleType: "GENERAL_SALE" | "MEMBERS" | "TICKET_EXCHANGE" | "NOT_ON_SALE" | "UNKNOWN";
   adultPrice: number | null;
   junior: { category: string; maxAge: number; price: number } | null;
   totalPrice: number | null;
@@ -221,6 +222,28 @@ export default function Home() {
                     </span>
                     <span>•</span>
                     <span>{result.venue}</span>
+                  </div>
+
+                  <div className="price-panel">
+                    <div>
+                      <span className="price-label">Sale status</span>
+                      <strong>
+                        {result.saleType === "GENERAL_SALE"
+                          ? "General sale"
+                          : result.saleType === "MEMBERS"
+                            ? "Priority sale"
+                            : result.saleType === "TICKET_EXCHANGE"
+                              ? "Ticket Exchange"
+                              : result.saleType === "NOT_ON_SALE"
+                                ? "Not on sale"
+                                : "Not confirmed"}
+                      </strong>
+                    </div>
+                    <p>
+                      {result.membershipRequired === false
+                        ? "No membership required for the published general-sale window."
+                        : "Purchase eligibility depends on the fixture's current sale window."}
+                    </p>
                   </div>
 
                   <div className="price-panel">

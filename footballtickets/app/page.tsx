@@ -18,6 +18,13 @@ type SearchResult = {
   source: string;
   checkedAt: string;
   reason?: string;
+  ticketRules: {
+    juniorCategory: string;
+    juniorMaxAge: number;
+    exchangeConcessionsAvailable: boolean;
+    exchangePricingRule: string;
+    generalSalePolicy: string;
+  };
 };
 
 export default function Home() {
@@ -237,6 +244,18 @@ export default function Home() {
                   </div>
 
                   {result.reason && <p className="reason">{result.reason}</p>}
+
+                  <div className="price-panel">
+                    <div>
+                      <span className="price-label">Junior eligibility</span>
+                      <strong>{result.ticketRules.juniorCategory}</strong>
+                    </div>
+                    <p>{result.ticketRules.generalSalePolicy}</p>
+                  </div>
+
+                  <p className="reason">
+                    Ticket Exchange: {result.ticketRules.exchangePricingRule}
+                  </p>
 
                   <div className="trust-row">
                     <span>Official source</span>

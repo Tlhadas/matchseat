@@ -7,12 +7,19 @@ export type TicketOption = {
   saleType: "GENERAL_SALE" | "MEMBERS" | "TICKET_EXCHANGE" | "NOT_ON_SALE" | "UNKNOWN";
   availability: "AVAILABLE" | "LIMITED" | "SOLD_OUT" | "UNKNOWN";
   adultPrice: number | null;
-  junior: { category: string; maxAge: number; price: number } | null;
+  junior: { category: string; maxAge: number; price: number | null } | null;
   membershipRequired: boolean | null;
   seatsTogetherKnown: boolean;
   officialUrl: string;
   source: string;
   checkedAt: string;
+  ticketRules: {
+    juniorCategory: string;
+    juniorMaxAge: number;
+    exchangeConcessionsAvailable: boolean;
+    exchangePricingRule: string;
+    generalSalePolicy: string;
+  };
 };
 
 type FulhamFixture = {
@@ -24,6 +31,7 @@ type FulhamFixture = {
 };
 
 const FULHAM_FIXTURES_URL = "https://www.fulhamfc.com/matches/Download";
+const FULHAM_TICKETS_URL = "https://www.eticketing.co.uk/fulhamfc";
 
 function decodeHtml(input: string): string {
   return input
@@ -48,31 +56,19 @@ function htmlToText(html: string): string {
 
 function buildIsoDate(day: number, monthName: string, time: string): string {
   const months: Record<string, number> = {
-    January: 0,
-    February: 1,
-    March: 2,
-    April: 3,
-    May: 4,
-    June: 5,
-    July: 6,
-    August: 7,
-    September: 8,
-    October: 9,
-    November: 10,
-    December: 11,
+    January: 0, February: 1, March: 2, April: 3,
+    May: 4, June: 5, July: 6, August: 7,
+    September: 8, October: 9, November: 10, December: 11,
   };
 
   const now = new Date();
   let year = now.getUTCFullYear();
   const month = months[monthName];
 
-  if (month < now.getUTCMonth() - 3) {
-    year += 1;
-  }
+  if (month < now.getUTCMonth() - 3) year += 1;
 
   const [hours, minutes] = time.split(":").map(Number);
-  const date = new Date(Date.UTC(year, month, day, hours, minutes));
-  return date.toISOString();
+  return new Date(Date.UTC(year, month, day, hours, minutes)).toISOString();
 }
 
 function parseHomeFixturesFromText(text: string): FulhamFixture[] {
@@ -90,10 +86,7 @@ function parseHomeFixturesFromText(text: string): FulhamFixture[] {
   while ((match = pattern.exec(text)) !== null) {
     const [, month, time, dayRaw, opponentRaw] = match;
     const opponent = opponentRaw.replace(/\s+/g, " ").trim();
-
-    if (!opponent || opponent.toLowerCase().startsWith("fulham")) {
-      continue;
-    }
+    if (!opponent || opponent.toLowerCase().startsWith("fulham")) continue;
 
     const kickoff = buildIsoDate(Number(dayRaw), month, time);
     const id = `fulham-${kickoff.slice(0, 10)}-${opponent
@@ -106,7 +99,7 @@ function parseHomeFixturesFromText(text: string): FulhamFixture[] {
       opponent,
       venue: "Craven Cottage",
       kickoff,
-      officialUrl: FULHAM_FIXTURES_URL,
+      officialUrl: FULHAM_TICKETS_URL,
     });
   }
 
@@ -142,11 +135,20 @@ export async function getFulhamMatches(): Promise<TicketOption[]> {
       saleType: "UNKNOWN",
       availability: "UNKNOWN",
       adultPrice: null,
-      junior: null,
+      junior: { category: "Junior U18", maxAge: 17, price: null },
       membershipRequired: null,
       seatsTogetherKnown: false,
       officialUrl: fixture.officialUrl,
-      source: "Fulham FC official fixtures",
+      source: "Fulham FC official fixtures and ticketing guidance",
       checkedAt,
+      ticketRules: {
+        juniorCategory: "Junior U18",
+        juniorMaxAge: 17,
+        exchangeConcessionsAvailable: false,
+        exchangePricingRule:
+          "Ticket Exchange seats are sold at the adult rate; concession pricing is not available.",
+        generalSalePolicy:
+          "General sale is fixture-specific and subject to remaining availability after priority sales.",
+      },
     }));
 }

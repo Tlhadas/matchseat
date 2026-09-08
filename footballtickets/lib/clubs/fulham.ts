@@ -30,7 +30,7 @@ type FulhamFixture = {
   officialUrl: string;
 };
 
-const FULHAM_FIXTURES_URL = "https://www.fulhamfc.com/matches/Download";
+const FULHAM_FIXTURES_URL = "https://hospitality.fulhamfc.com/upcoming-fixtures";
 const FULHAM_TICKETS_URL = "https://www.eticketing.co.uk/fulhamfc";
 const FULHAM_MATCH_TICKET_BASE =
   "https://www.fulhamfc.com/tickets-and-hospitality/match-tickets";
@@ -95,23 +95,42 @@ function buildIsoDate(day: number, monthName: string, time: string): string {
 }
 
 function parseHomeFixturesFromText(text: string): FulhamFixture[] {
-  const monthNames =
-    "January|February|March|April|May|June|July|August|September|October|November|December";
+  const monthNumbers: Record<string, number> = {
+    Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
+    Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11,
+  };
 
-  const pattern = new RegExp(
-    `(${monthNames}).{0,120}?(\\d{2}:\\d{2})\\s+(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\\s+(\\d{1,2})\\s+H\\s*ome.{0,120}?Fulham(?: FC)?.{0,80}?([A-Z][A-Za-z0-9&'. -]{2,50}?).{0,100}?Craven Cottage`,
-    "gi"
-  );
+  const pattern =
+    /Fulham FC\s+Fulham FC\s+V\s+(.+?)\s+\1\s+(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(20\d{2})\s+-\s+(\d{2}:\d{2})\s+Premier League/gi;
 
   const fixtures: FulhamFixture[] = [];
   let match: RegExpExecArray | null;
 
   while ((match = pattern.exec(text)) !== null) {
-    const [, month, time, dayRaw, opponentRaw] = match;
+    const [, opponentRaw, dayRaw, monthRaw, yearRaw, time] = match;
     const opponent = opponentRaw.replace(/\s+/g, " ").trim();
-    if (!opponent || opponent.toLowerCase().startsWith("fulham")) continue;
+    const month = monthNumbers[monthRaw];
+    const [hours, minutes] = time.split(":").map(Number);
 
-    const kickoff = buildIsoDate(Number(dayRaw), month, time);
+    const naiveUtc = Date.UTC(Number(yearRaw), month, Number(dayRaw), hours, minutes);
+    const zoneParts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Europe/London",
+      timeZoneName: "shortOffset",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+    }).formatToParts(new Date(naiveUtc));
+
+    const zoneName =
+      zoneParts.find((part) => part.type === "timeZoneName")?.value ?? "GMT";
+    const offsetMatch = zoneName.match(/GMT([+-])(\d{1,2})(?::(\d{2}))?/);
+    const offsetMinutes = offsetMatch
+      ? (offsetMatch[1] === "+" ? 1 : -1) *
+        (Number(offsetMatch[2]) * 60 + Number(offsetMatch[3] ?? 0))
+      : 0;
+
+    const kickoff = new Date(naiveUtc - offsetMinutes * 60_000).toISOString();
     const id = `fulham-${kickoff.slice(0, 10)}-${opponent
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
@@ -128,7 +147,6 @@ function parseHomeFixturesFromText(text: string): FulhamFixture[] {
 
   return fixtures;
 }
-
 
 function opponentSlug(opponent: string): string {
   return opponent
